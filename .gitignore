@@ -1,0 +1,6 @@
+*.env
+.env
+__pycache__/
+tech_blog_image_prompt.json
+tech_blog_image.png
+tech_blog_image.alt.txt
