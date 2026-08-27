@@ -120,3 +120,6 @@ def scrape_rss_feed(max_items=10):
 
         return news_data
 
+
+def main():
+    ...
