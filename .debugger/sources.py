@@ -5,19 +5,12 @@ import random
 import json
 import logging
 from newspaper import Article
+import cloudscraper
 
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 CYBERSEC_NEWS_FEED = [
-    "https://feeds.feedburner.com/TheHackersNews", # The Hacker News  - direct image link available 
-    "https://www.bleepingcomputer.com/feed/",   #bleeping computer working 
-    "https://krebsonsecurity.com/feed/",    # XML feed 
-    "https://www.darkreading.com/rss.xml",     #image available
     "https://www.securityweek.com/rss",
-    "https://techcrunch.com/category/artificial-intelligence/feed/", # TechCrunch AI
-    "https://feeds.arstechnica.com/arstechnica/technology-lab" # Ars Technica IT/Tech
 ]
 
 
@@ -59,7 +52,11 @@ def extract_article(url : str):
         random_delay()
 
         headers = get_headers()
-        response = requests.get(url, headers=headers, timeout=15)
+        scraper = cloudscraper.create_scraper()
+        response = scraper.get(url, timeout=15)
+
+        print(f"STATUS CODE FOR {url}: {response.status_code}")
+        print(f"HTML SNIPPET: {response.text[:200]}") 
         response.raise_for_status()
         html = response.text
 
@@ -78,9 +75,9 @@ def extract_article(url : str):
         return ""
 
 # scrape news from RSS feeds
-def scrape_rss_feed(max_items=10):
+def scrape_rss_feed(max_items=3):
     news_data = []
-    seen_links = []
+    seen_links = set()
     for feed_url in CYBERSEC_NEWS_FEED:
         logging.info(f"Reading RSS Feed : {feed_url}")
 
@@ -94,7 +91,7 @@ def scrape_rss_feed(max_items=10):
             link = entry.link
 
             if link in seen_links:
-                break
+                continue
             seen_links.add(link)
 
             title = entry.title
@@ -117,9 +114,9 @@ def scrape_rss_feed(max_items=10):
             })
 
             count += 1
+    return news_data
 
-        return news_data
-
+# to scrape the cves from NVD api
 def scrape_cves():
 
     logging.info("Scraping latest CVES.")
@@ -127,7 +124,7 @@ def scrape_cves():
     # retry mechs
     for attempt in range(3):
         try:
-            response = requests.get(NVD_API,headers=get_headers,timeout=20)
+            response = requests.get(NVD_API,headers=get_headers(),timeout=20)
             response.raise_for_status()
             data = response.json()
 
@@ -149,8 +146,13 @@ def scrape_cves():
 
 
 def main():
-    import time 
-
     logging.info("Scraping Cybersecurity Category.")
+
     news = scrape_rss_feed()
+    cves = scrape_cves()
+
     
+
+    print(news)
+
+main()

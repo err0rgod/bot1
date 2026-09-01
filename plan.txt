@@ -8,7 +8,9 @@ Categories->
 2. AI/ML
 3. Robotics
 4. Tech finance
-5. 
+5. Softwares
+6. Electronics
+7. Avionics
 
 What we need from scrape->
 
@@ -18,3 +20,14 @@ What we need from scrape->
 4. original post link 
 5. date
 
+after scraping the data will be uploaded to S3 or something else
+the data then will be served by the backed function which will expose its api endpoints using api gateway 
+the app will ping the api endpoints like fetch posts , fetch trending, fetch category etc 
+
+
+first we need to build the scraper and in scraper first lets build the cybersecurity scraper and properly deploy it to the 
+lambda and connect everything to it this will make our path easy to make other categories scrapers
+
+
+when scraping make sure to not push duplicate news for this we will scrape only the cves that are of today and for all of the todays news we will pass it to the 
+llm to see if they are duplicate or not and also maintain a unique URL
