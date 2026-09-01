@@ -120,6 +120,37 @@ def scrape_rss_feed(max_items=10):
 
         return news_data
 
+def scrape_cves():
+
+    logging.info("Scraping latest CVES.")
+
+    # retry mechs
+    for attempt in range(3):
+        try:
+            response = requests.get(NVD_API,headers=get_headers,timeout=20)
+            response.raise_for_status()
+            data = response.json()
+
+            cves = []
+            for vuln in data.get("vulnerebilities", []):
+                cve = vuln["cve"]
+                cve_id = vuln["id"]
+
+                descritions = cve.get("description", [])
+                description = ""
+                for d in descritions:
+                    if d["lang"] == "en":
+                        description = d["value"]
+                        break
+
+
+        except Exception as e:
+            logging.error(f"Error Occured : {e}.")
+
 
 def main():
-    ...
+    import time 
+
+    logging.info("Scraping Cybersecurity Category.")
+    news = scrape_rss_feed()
+    

@@ -1,0 +1,20 @@
+The goal is to make a app that serves tech news exactly like inshorts so the thing is we need to collect and summarise the issue properly and know how to work on them and serve to the user
+
+So whaat first we need is categorisation 
+
+Categories->
+
+1. cybersecurity 
+2. AI/ML
+3. Robotics
+4. Tech finance
+5. 
+
+What we need from scrape->
+
+1. Title
+2. Summary
+3. image link 
+4. original post link 
+5. date
+
