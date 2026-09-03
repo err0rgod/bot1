@@ -11,6 +11,8 @@ from newspaper import Article
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
+
+
 CYBERSEC_NEWS_FEED = [
     "https://feeds.feedburner.com/TheHackersNews", # The Hacker News  - direct image link available 
     "https://www.bleepingcomputer.com/feed/",   #bleeping computer working 
