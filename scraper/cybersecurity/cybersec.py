@@ -4,6 +4,8 @@ import feedparser
 import time
 import random
 import json
+import os
+import dotenv
 import logging
 from newspaper import Article
 from datetime import datetime, timezone
@@ -54,9 +56,48 @@ def get_headers():
     }
 
 
+def extract_article_with_firecrawl(url: str):
+    """ Uses firecrawl to exract content for cloudflare restricted pages"""
+    logging.info(f"triggerinng firecrawl for: {url}")
+
+    api_key = os.getenv("FIRECRAWL_API_KEY")
+    api_url = "https://api.firecrawl.dev/v0/scrape"
+
+    header = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "url" : url,
+        "pageOptions" : {
+            "onlyMainContent" : True
+        }
+    }
+
+    try:
+        response = requests.post(api_url,headers=header, json=payload, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+        markdown_text = data.get('data', {}).get('markdown', "")
+        
+        # --- CLEANUP FIRECRAWL JUNK ---
+        # Find where the actual article ends and chop off everything after it
+        cutoff_phrases = ["### Related Articles:", "### You may also like:", "##### Post a Comment", "[Photo of"]
+        
+        for phrase in cutoff_phrases:
+            if phrase in markdown_text:
+                markdown_text = markdown_text.split(phrase)[0] # Keep only the text BEFORE the phrase
+        
+        return markdown_text.strip()
+
+    except Exception as e:
+        logging.warning(f"Firecrawl failed for: {url} | Error : {e}")
+        return ""
+
 #extract article content using newspaper3k for HTML pages 
 def extract_article(url : str):
     try:
+        # attempt 1 : direct scraping 
         random_delay()
 
         scraper = cloudscraper.create_scraper()
@@ -71,10 +112,15 @@ def extract_article(url : str):
         article.set_html(html)
         article.parse()
 
+        if not article.text or len(article.text) < 50 :
+            raise ValueError("Newspaper3k return enmpty or malformed string.")
+
         return article.text
     except Exception as e:
-        logging.warning(f" Failed to parse arcticle : {url} | Error : {e}")
-        return ""
+        # attempt 2 : using firecrawl 
+        logging.warning(f" Failed to parse arcticle : {url} | Error : {e} -> Falling back to firecrawl ")
+
+        return extract_article_with_firecrawl(url=url)
 
 # scrape news from RSS feeds
 def scrape_rss_feed():
@@ -95,8 +141,8 @@ def scrape_rss_feed():
             parsed_time = entry.get("published_parsed") or entry.get("updated_parsed")
             if parsed_time:
                 article_date = datetime(*parsed_time[:6]).date()
-            if article_date != today:
-                continue  # Skip it if it wasn't published today!
+                if article_date != today:
+                    continue  # Skip it if it wasn't published today!
 
             # check if already seen in links
             link = entry.link
@@ -110,7 +156,7 @@ def scrape_rss_feed():
                 continue
     
             seen_links.add(link)
-            
+
             title = entry.title
             date = entry.get("published", "")
             summary = entry.get("summary", "")
@@ -130,7 +176,6 @@ def scrape_rss_feed():
                 "content":content
             })
 
-            count += 1
     return news_data
 
 # to scrape the cves from NVD api
