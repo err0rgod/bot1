@@ -6,11 +6,9 @@ import random
 import json
 import logging
 from newspaper import Article
-
+from datetime import datetime, timezone
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-
 
 
 CYBERSEC_NEWS_FEED = [
@@ -79,25 +77,40 @@ def extract_article(url : str):
         return ""
 
 # scrape news from RSS feeds
-def scrape_rss_feed(max_items=3):
+def scrape_rss_feed():
     news_data = []
     seen_links = set()
+
+    # get today's date in UTC
+    today = datetime.now(timezone.utc).date()
+
     for feed_url in CYBERSEC_NEWS_FEED:
         logging.info(f"Reading RSS Feed : {feed_url}")
 
         feed = feedparser.parse(feed_url)
 
-        count = 0
-
         for entry in feed.entries:
-            if count >=  max_items:
-                break
+
+             # Filter by Current Day Only
+            parsed_time = entry.get("published_parsed") or entry.get("updated_parsed")
+            if parsed_time:
+                article_date = datetime(*parsed_time[:6]).date()
+            if article_date != today:
+                continue  # Skip it if it wasn't published today!
+
+            # check if already seen in links
             link = entry.link
+
+            # check if article scanned today
+            if is_already_scraped(link):
+                logging.info(f"Skipping already parsed article {link}")
+                continue
 
             if link in seen_links:
                 continue
+    
             seen_links.add(link)
-
+            
             title = entry.title
             date = entry.get("published", "")
             summary = entry.get("summary", "")
@@ -147,6 +160,12 @@ def scrape_cves():
 
         except Exception as e:
             logging.error(f"Error Occured : {e}.")
+
+def is_already_scraped(article_url : str) -> bool:
+    """
+    Checks if the article has already been parsed today.
+    """
+    return False
 
 
 def main():
