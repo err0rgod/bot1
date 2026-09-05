@@ -219,8 +219,8 @@ def main():
     news = scrape_rss_feed()
     cves = scrape_cves()
 
-    
-
-    print(news)
+    with open("scraped_content.json", "w", encoding="utf-8") as f:
+        json.dump(news, f, indent=4)
+    logging.info("Successfully completed Cybersecurity news scraping and content saved to json.")
 
 main()
