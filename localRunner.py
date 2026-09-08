@@ -1,9 +1,10 @@
-from Scraper.ScraperDistributer import lambda_handler as run_scraper
+# from scraper.ScraperDistributer import lambda_handler as run_scraper
 from llm.SummariserDistributer import lambdaHandler as run_summarizer
 
 # All your categories
-CATEGORIES = ["cybersec", "ai", "programming", "robotics", "defense_aerospace",
-  "hardware"]
+CATEGORIES = ["ai"]
+# CATEGORIES = ["cybersec", "ai", "programming", "robotics", "defense_aerospace",
+#   "hardware"]
 
 def run_full_pipeline():
     for cat in CATEGORIES:
