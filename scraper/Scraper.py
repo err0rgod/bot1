@@ -76,7 +76,10 @@ def extract_article_with_firecrawl(url: str):
             if phrase in markdown_text:
                 markdown_text = markdown_text.split(phrase)[0] # Keep only the text BEFORE the phrase
         
-        return markdown_text.strip()
+        return {
+            "content": markdown_text.strip(),
+            "image_url": None
+        }
 
     except Exception as e:
         logging.warning(f"Firecrawl failed for: {url} | Error : {e}")
@@ -103,7 +106,13 @@ def extract_article(url : str):
         if not article.text or len(article.text) < 50 :
             raise ValueError("Newspaper3k return enmpty or malformed string.")
 
-        return article.text
+        image_url = article.top_image if article.top_image and article.top_image.startswith("http") else None
+
+        return {
+            "content": article.text,
+            "image_url": image_url
+        }
+
     except Exception as e:
         # attempt 2 : using firecrawl 
         logging.warning(f" Failed to parse arcticle : {url} | Error : {e} -> Falling back to firecrawl ")
@@ -151,9 +160,20 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
 
             logging.info(f"Scraping article: {title}")
 
-            content = extract_article(link)
-            if not content: 
+            extracted_data = extract_article(link)
+            if not extracted_data or not isinstance(extracted_data, dict) or not extracted_data.get("content"): 
                 continue
+
+            rss_image = None
+            if "media_content" in entry and len(entry.media_content) > 0:
+                rss_image = entry.media_content[0].get("url")
+            elif "links" in entry:
+                for link_item in entry.links:
+                    if link_item.get("rel") == "enclosure" and "image" in link_item.get("type", ""):
+                        rss_image = link_item.get("href")
+                        break 
+
+            final_image_url = rss_image or extracted_data.get("image_url") or ""
 
             news_data.append({
                 "id":link,
@@ -161,7 +181,8 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
                 "link":link,
                 "date":date,
                 "summary":summary,
-                "content":content
+                "content":extracted_data["content"],
+                "image_url":final_image_url
             })
 
     return news_data

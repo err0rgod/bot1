@@ -2,9 +2,9 @@
 from llm.SummariserDistributer import lambdaHandler as run_summarizer
 
 # All your categories
-CATEGORIES = ["ai"]
-# CATEGORIES = ["cybersec", "ai", "programming", "robotics", "defense_aerospace",
-#   "hardware"]
+# CATEGORIES = ["ai"]
+CATEGORIES = ["cybersec", "ai", "programming", "robotics", "defense_aerospace",
+  "hardware"]
 
 def run_full_pipeline():
     for cat in CATEGORIES:

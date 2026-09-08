@@ -1,14 +1,17 @@
 import os 
 import time
-from groq import Groq
+from openai import OpenAI
 import logging
 import dotenv
 import json
 
 dotenv.load_dotenv()
 
-# Initialize Groq client
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+# Initialize DeepSeek client
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://api.deepseek.com/v1"
+)
 
 systemPrompt = """
 You are a cynical, highly intelligent tech journalist. 
@@ -22,7 +25,7 @@ You MUST return ONLY valid JSON matching this structure.
 """
 
 def generateContent(rawContent):
-    """ sends raw article to Groq with Exponential Backoff Retry """
+    """ sends raw article to DeepSeek with Exponential Backoff Retry """
     if not rawContent or len(rawContent) < 50:
         return None
     
@@ -32,7 +35,7 @@ def generateContent(rawContent):
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="deepseek-chat", # The standard DeepSeek V3/V4 model endpoint
                 messages=[
                     {"role" : "system", "content" : systemPrompt},
                     {"role" : "user", "content" : rawContent[:2000]}
@@ -47,14 +50,13 @@ def generateContent(rawContent):
             return json.loads(resultText)
             
         except Exception as e:
-            logging.warning(f"LLM API Error on attempt {attempt + 1}: {e}")
+            logging.warning(f"DeepSeek API Error on attempt {attempt + 1}: {e}")
             
             # If we haven't hit the max retries yet, sleep and try again
             if attempt < max_retries - 1:
-                # Exponential backoff formula: 2s, then 4s, etc.
                 sleep_time = base_delay * (2 ** attempt) 
-                logging.info(f"Rate limited or disconnected. Retrying in {sleep_time} seconds...")
+                logging.info(f"DeepSeek rate limited or disconnected. Retrying in {sleep_time} seconds...")
                 time.sleep(sleep_time)
             else:
-                logging.error(f"LLM Call completely failed after {max_retries} attempts.")
+                logging.error(f"DeepSeek Call completely failed after {max_retries} attempts.")
                 return None

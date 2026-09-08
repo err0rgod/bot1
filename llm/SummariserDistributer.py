@@ -45,6 +45,7 @@ def lambdaHandler(event, context):
                 "link": article['link'],
                 "date": article['date'],
                 "title": article['title'],
+                "image_url": article.get('image_url', ''),
                 "heading": resultant.get("roasted_heading"),
                 "shortSummary": resultant.get("short_roast_summary"),
                 "fullSummary": resultant.get("full_summary")
