@@ -13,19 +13,7 @@ from datetime import datetime, timezone
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
-CYBERSEC_NEWS_FEED = [
-    "https://feeds.feedburner.com/TheHackersNews", # The Hacker News  - direct image link available 
-    "https://www.bleepingcomputer.com/feed/",   #bleeping computer working 
-    "https://krebsonsecurity.com/feed/",    # XML feed 
-    "https://www.darkreading.com/rss.xml",     #image available
-    "https://www.securityweek.com/rss",
-    "https://techcrunch.com/category/artificial-intelligence/feed/", # TechCrunch AI
-    "https://feeds.arstechnica.com/arstechnica/technology-lab" # Ars Technica IT/Tech
-]
 
-
-# NVD api for CVE's
-NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 
 # Multiple user agents to avoid getting blocked
@@ -123,14 +111,14 @@ def extract_article(url : str):
         return extract_article_with_firecrawl(url=url)
 
 # scrape news from RSS feeds
-def scrape_rss_feed():
+def scrape_rss_feed(category_name, feeds_to_scrape):
     news_data = []
     seen_links = set()
 
     # get today's date in UTC
     today = datetime.now(timezone.utc).date()
 
-    for feed_url in CYBERSEC_NEWS_FEED:
+    for feed_url in feeds_to_scrape:
         logging.info(f"Reading RSS Feed : {feed_url}")
 
         feed = feedparser.parse(feed_url)
@@ -178,33 +166,6 @@ def scrape_rss_feed():
 
     return news_data
 
-# to scrape the cves from NVD api
-def scrape_cves():
-
-    logging.info("Scraping latest CVES.")
-
-    # retry mechs
-    for attempt in range(3):
-        try:
-            response = requests.get(NVD_API,headers=get_headers(),timeout=20)
-            response.raise_for_status()
-            data = response.json()
-
-            cves = []
-            for vuln in data.get("vulnerebilities", []):
-                cve = vuln["cve"]
-                cve_id = vuln["id"]
-
-                descritions = cve.get("description", [])
-                description = ""
-                for d in descritions:
-                    if d["lang"] == "en":
-                        description = d["value"]
-                        break
-
-
-        except Exception as e:
-            logging.error(f"Error Occured : {e}.")
 
 def is_already_scraped(article_url : str) -> bool:
     """
@@ -212,15 +173,3 @@ def is_already_scraped(article_url : str) -> bool:
     """
     return False
 
-
-def main():
-    logging.info("Scraping Cybersecurity Category.")
-
-    news = scrape_rss_feed()
-    cves = scrape_cves()
-
-    with open("scraped_content.json", "w", encoding="utf-8") as f:
-        json.dump(news, f, indent=4)
-    logging.info("Successfully completed Cybersecurity news scraping and content saved to json.")
-
-main()
