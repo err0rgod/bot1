@@ -27,6 +27,9 @@ def lambda_handler(event, context):
             
     return {"statusCode": 200, "body": f"Successfully scraped {target_category}"}
     
+
+
+
     
 # For Local Testing
 if __name__ == "__main__":
