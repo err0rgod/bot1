@@ -2,8 +2,8 @@
 import json
 import logging
 from datetime import datetime, timezone
-from feeds import NewsFeeds           # Import your class!
-from scraper import scrape_rss_feed   # Import your engine!
+from Feeds import NewsFeeds           # Import your class!
+from Scraper import scrape_rss_feed   # Import your engine!
     
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     

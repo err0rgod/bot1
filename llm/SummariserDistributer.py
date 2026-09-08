@@ -10,12 +10,12 @@ def lambdaHandler(event, context):
     targetCategory = event.get("category", "ai")
     today = datetime.now(timezone.utc).date()
 
-    inputFilename = f"scraped_{targetCategory}_{today}.json"
+    inputFilename = f"D:/bot1/tmp/scraped_{targetCategory}_{today}.json"
     # chaneg to temp when in lambda
     if not os.path.exists(inputFilename):
         input_filename = f"/tmp/scraped_{targetCategory}_{today}.json"
 
-    outputFilename = f"final_{targetCategory}_{today}.json"
+    outputFilename = f"D:/bot1/tmp/final_{targetCategory}_{today}.json"
 
     if "/tmp/" in inputFilename:
         outputFilename = f"/tmp/final_{targetCategory}_{today}.json"
@@ -59,5 +59,5 @@ def lambdaHandler(event, context):
         logging.info(f"Successfully sumarised {len(finalData)} articles.")
     return {"status_code": 200, "body": "summarisation complete"}
 
-    if __name__ == "__main__":
-        lambdaHandler({"category": "ai"}, None)
+if __name__ == "__main__":
+    lambdaHandler({"category": "ai"}, None)

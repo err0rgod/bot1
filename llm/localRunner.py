@@ -1,4 +1,4 @@
-from scraper.lambda_scraper_handler import lambda_handler as run_scraper
+from Scraper.ScraperDistributer import lambda_handler as run_scraper
 from llm.SummariserDistributer import lambdaHandler as run_summarizer
 
 # All your categories
@@ -14,7 +14,7 @@ def run_full_pipeline():
         # Step 1: Fake an AWS Event and trigger the Scraper
         aws_event = {"category": cat}
         print("-> Running Scraper...")
-        run_scraper(aws_event, None)
+        # run_scraper(aws_event, None)
         
         # Step 2: Fake an AWS Event and trigger the Summarizer
         print("-> Running Summarizer...")
