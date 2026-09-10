@@ -9,6 +9,8 @@ import dotenv
 import logging
 from newspaper import Article
 from datetime import datetime, timezone
+from db.database import is_article_scraped
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -188,5 +190,5 @@ def is_already_scraped(article_url : str) -> bool:
     """
     Checks if the article has already been parsed today.
     """
-    return False
+    return is_article_scraped(article_url)
 

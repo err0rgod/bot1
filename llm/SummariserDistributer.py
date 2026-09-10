@@ -3,6 +3,8 @@ import logging
 import os 
 from datetime import datetime, timezone
 from llm.Summariser import generateContent
+from db.database import save_article
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -40,6 +42,7 @@ def lambdaHandler(event, context):
 
         if resultant:
             # combine pieces
+            save_article(article, targetCategory, resultant)
             processed = {
                 "id": article['id'],
                 "link": article['link'],
