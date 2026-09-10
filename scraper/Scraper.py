@@ -117,14 +117,17 @@ def extract_article(url : str):
 
         return extract_article_with_firecrawl(url=url)
 
+from llm.deduplicator import filter_duplicate_articles
+
 # scrape news from RSS feeds
 def scrape_rss_feed(category_name, feeds_to_scrape):
-    news_data = []
+    candidates = []
     seen_links = set()
 
     # get today's date in UTC
     today = datetime.now(timezone.utc).date()
 
+    # Stage 1: Collect today's un-scraped headlines from feeds
     for feed_url in feeds_to_scrape:
         logging.info(f"Reading RSS Feed : {feed_url}")
 
@@ -132,7 +135,7 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
 
         for entry in feed.entries:
 
-             # Filter by Current Day Only
+            # Filter by Current Day Only
             parsed_time = entry.get("published_parsed") or entry.get("updated_parsed")
             if parsed_time:
                 article_date = datetime(*parsed_time[:6]).date()
@@ -152,16 +155,7 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
     
             seen_links.add(link)
 
-            title = entry.title
-            date = entry.get("published", "")
-            summary = entry.get("summary", "")
-
-            logging.info(f"Scraping article: {title}")
-
-            extracted_data = extract_article(link)
-            if not extracted_data or not isinstance(extracted_data, dict) or not extracted_data.get("content"): 
-                continue
-
+            # extract thumbnail from RSS if available
             rss_image = None
             if "media_content" in entry and len(entry.media_content) > 0:
                 rss_image = entry.media_content[0].get("url")
@@ -169,19 +163,47 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
                 for link_item in entry.links:
                     if link_item.get("rel") == "enclosure" and "image" in link_item.get("type", ""):
                         rss_image = link_item.get("href")
-                        break 
+                        break
 
-            final_image_url = rss_image or extracted_data.get("image_url") or ""
-
-            news_data.append({
-                "id":link,
-                "title":title,
-                "link":link,
-                "date":date,
-                "summary":summary,
-                "content":extracted_data["content"],
-                "image_url":final_image_url
+            candidates.append({
+                "title": entry.title,
+                "link": link,
+                "date": entry.get("published", ""),
+                "summary": entry.get("summary", ""),
+                "rss_image": rss_image
             })
+
+    if not candidates:
+        logging.info(f"No new candidates found today for category: {category_name}")
+        return []
+
+    # Stage 2: Semantic LLM Deduplication (clustering duplicate coverage)
+    logging.info(f"Found {len(candidates)} candidates for {category_name}. Running semantic deduplication...")
+    unique_candidates = filter_duplicate_articles(candidates)
+
+    # Stage 3: Extract full content & images only for unique stories
+    news_data = []
+    for item in unique_candidates:
+        link = item["link"]
+        title = item["title"]
+
+        logging.info(f"Scraping unique article: {title}")
+
+        extracted_data = extract_article(link)
+        if not extracted_data or not isinstance(extracted_data, dict) or not extracted_data.get("content"): 
+            continue
+
+        final_image_url = item["rss_image"] or extracted_data.get("image_url") or ""
+
+        news_data.append({
+            "id": link,
+            "title": title,
+            "link": link,
+            "date": item["date"],
+            "summary": item["summary"],
+            "content": extracted_data["content"],
+            "image_url": final_image_url
+        })
 
     return news_data
 

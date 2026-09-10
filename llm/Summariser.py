@@ -9,8 +9,8 @@ import boto3
 
 dotenv.load_dotenv()
 
-# Boolean flag to toggle between AWS Bedrock and direct DeepSeek API
-useBedrock = True
+# Boolean flag to toggle between AWS Bedrock and direct DeepSeek API (configured in .env)
+useBedrock = os.getenv("USE_BEDROCK", "true").strip().lower() in ("true", "1", "yes")
 
 # Initialize DeepSeek direct client
 deepseek_client = OpenAI(
