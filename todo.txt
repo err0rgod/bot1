@@ -25,4 +25,7 @@ the data then will be served by the backed function which will expose its api en
 
 
 plan how to implement uniqueness 
-add 
+fast parallel execution 
+feed building 
+add more and quality sources 
+add politics and others also with light taste
