@@ -4,9 +4,37 @@ import os
 from datetime import datetime, timezone
 from llm.Summariser import generateContent
 from db.database import save_article
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+def process_single_article(article, targetCategory):
+    """ worker process to process a single article in a thread"""
+    try:
+        logging.info(f"Summarising in parallel: {article['title']}")
+        resultant = generateContent(article['content'])
+
+        if resultant:
+            # save to dynamoDB
+            save_article(article, targetCategory, resultant )
+            # return processed dict for local json logging
+            return {
+                "id": article['id'],
+                "link": article['link'],
+                "date": article['date'],
+                "title": article['title'],
+                "image_url": article.get('image_url', ''),
+                "heading": resultant.get("roasted_heading"),
+                "shortSummary": resultant.get("short_roast_summary"),
+                "fullSummary": resultant.get("full_summary")
+            }
+        else:
+            logging.warning(f"Failed to summarise: {article['title']}")
+            return None
+    except Exception as e:
+        logging.error(f"Error processing article {article.get('title')}: {e}")
+        return None
 
 def lambdaHandler(event, context):
     targetCategory = event.get("category", "ai")
@@ -34,29 +62,19 @@ def lambdaHandler(event, context):
 
     finalData = []
 
-    # process each article through deepseek 
-    for article in articles:
-        logging.info(f"Pinching: {article['title']}")
+    # process upto 5 articles concurrently
+    with ThreadPoolExecutor(max_workers=5) as executer:
+        future_to_article = {
+            executer.submit(process_single_article, art, targetCategory): art
+            for art in articles
+        }
 
-        resultant = generateContent(article['content'])
+        for future in as_completed(future_to_article):
+            result = future.result()
+            if result:
+                finalData.append(result)
 
-        if resultant:
-            # combine pieces
-            save_article(article, targetCategory, resultant)
-            processed = {
-                "id": article['id'],
-                "link": article['link'],
-                "date": article['date'],
-                "title": article['title'],
-                "image_url": article.get('image_url', ''),
-                "heading": resultant.get("roasted_heading"),
-                "shortSummary": resultant.get("short_roast_summary"),
-                "fullSummary": resultant.get("full_summary")
-            }
-            finalData.append(processed)
-        else:
-            logging.warning(f"Failed to summarise: {article['title']}")
-
+                
     with open(outputFilename, "w", encoding="utf-8") as f:
         json.dump(finalData, f, indent=4)
 
