@@ -1,6 +1,6 @@
-# lambda_scrape_handler.py
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from scraper.Feeds import NewsFeeds           # Import your class!
 from scraper.Scraper import scrape_rss_feed   # Import your engine!
@@ -20,12 +20,16 @@ def lambda_handler(event, context):
         
     # 3. Save the results
     today = datetime.now(timezone.utc).date()
-    filename = f"D:/bot1/tmp/scraped_{target_category}_{today}.json" 
+    tmp_dir = os.environ.get("TMP_DIR")
+    if not tmp_dir:
+        tmp_dir = "/tmp" if os.name != "nt" else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tmp")
+    os.makedirs(tmp_dir, exist_ok=True)
+    filename = os.path.join(tmp_dir, f"scraped_{target_category}_{today}.json")
         
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(news, f, indent=4)
             
-    return {"statusCode": 200, "body": f"Successfully scraped {target_category}"}
+    return {"statusCode": 200, "body": f"Successfully scraped {target_category}", "count": len(news)}
     
 
 
