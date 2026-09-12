@@ -10,6 +10,7 @@ import logging
 from newspaper import Article
 from datetime import datetime, timezone
 from db.database import is_article_scraped
+from llm.deduplicator import filter_duplicate_articles
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -95,8 +96,6 @@ def extract_article(url : str):
         response.raise_for_status()
         html = response.text
 
-        from newspaper import Config
-
         article = Article(url)
         article.set_html(html)
         article.parse()
@@ -117,7 +116,6 @@ def extract_article(url : str):
 
         return extract_article_with_firecrawl(url=url)
 
-from llm.deduplicator import filter_duplicate_articles
 
 # scrape news from RSS feeds
 def scrape_rss_feed(category_name, feeds_to_scrape):

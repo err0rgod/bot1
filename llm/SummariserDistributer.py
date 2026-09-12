@@ -40,32 +40,42 @@ def lambdaHandler(event, context):
     targetCategory = event.get("category", "ai")
     today = datetime.now(timezone.utc).date()
 
-    workspaceInputFilename = f"D:/bot1/tmp/scraped_{targetCategory}_{today}.json"
-    lambdaInputFilename = f"/tmp/scraped_{targetCategory}_{today}.json"
+    tmp_dir = os.environ.get("TMP_DIR")
+    if not tmp_dir:
+        tmp_dir = "/tmp" if os.name != "nt" else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tmp")
 
-    if os.path.exists(workspaceInputFilename):
-        inputFilename = workspaceInputFilename
-    elif os.path.exists(lambdaInputFilename):
-        inputFilename = lambdaInputFilename
-    else:
-        logging.error(f"Could not find input file: {workspaceInputFilename} or {lambdaInputFilename}")
-        return {"statusCode": 404, "body": "Input file not found"}
+    inputFilename = os.path.join(tmp_dir, f"scraped_{targetCategory}_{today}.json")
+
+    if not os.path.exists(inputFilename):
+        # Fallback to alternate temporary locations
+        alt_paths = [
+            f"/tmp/scraped_{targetCategory}_{today}.json",
+            os.path.join(os.getcwd(), "tmp", f"scraped_{targetCategory}_{today}.json")
+        ]
+        found = False
+        for alt in alt_paths:
+            if os.path.exists(alt):
+                inputFilename = alt
+                found = True
+                break
+        if not found:
+            logging.error(f"Could not find input file: {inputFilename}")
+            return {"statusCode": 404, "body": "Input file not found"}
 
     outputFilename = os.path.join(os.path.dirname(inputFilename), f"final_{targetCategory}_{today}.json")
-
     os.makedirs(os.path.dirname(outputFilename), exist_ok=True)
 
-    with open(inputFilename, "r", encoding = 'utf-8') as f:
+    with open(inputFilename, "r", encoding="utf-8") as f:
         articles = json.load(f)
 
-    logging.info(f"loaded {len(articles)} articles, Hitting deepseek now....")
+    logging.info(f"Loaded {len(articles)} articles, generating roasted summaries...")
 
     finalData = []
 
-    # process upto 5 articles concurrently
-    with ThreadPoolExecutor(max_workers=5) as executer:
+    # Process up to 5 articles concurrently
+    with ThreadPoolExecutor(max_workers=5) as executor:
         future_to_article = {
-            executer.submit(process_single_article, art, targetCategory): art
+            executor.submit(process_single_article, art, targetCategory): art
             for art in articles
         }
 
@@ -74,12 +84,11 @@ def lambdaHandler(event, context):
             if result:
                 finalData.append(result)
 
-                
     with open(outputFilename, "w", encoding="utf-8") as f:
         json.dump(finalData, f, indent=4)
 
-    logging.info(f"Successfully sumarised {len(finalData)} articles.")
-    return {"status_code": 200, "body": "summarisation complete"}
+    logging.info(f"Successfully summarized {len(finalData)} articles.")
+    return {"statusCode": 200, "body": "summarisation complete"}
 
 if __name__ == "__main__":
     lambdaHandler({"category": "ai"}, None)
