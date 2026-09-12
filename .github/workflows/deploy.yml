@@ -34,9 +34,14 @@ jobs:
       - name: Run Pytest Test Suite
         env:
           AWS_REGION: us-east-1
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_ACCESS_KEY_ID: mock-access-key
+          AWS_SECRET_ACCESS_KEY: mock-secret-key
           DYNAMODB_TABLE_NAME: zerodaily-articles
           TABLE_NAME: zerodaily-articles
           USE_BEDROCK: "true"
+          DEEPSEEK_API_KEY: "mock-deepseek-key"
+          FIRECRAWL_API_KEY: "mock-firecrawl-key"
         run: |
           pytest -v
 

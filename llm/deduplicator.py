@@ -16,7 +16,7 @@ REGION = os.getenv("AWS_REGION", "us-east-1")
 bedrock_client = boto3.client("bedrock-runtime", region_name=REGION)
 
 deepseek_client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    api_key=os.getenv("DEEPSEEK_API_KEY") or "mock-key",
     base_url="https://api.deepseek.com/v1"
 )
 
