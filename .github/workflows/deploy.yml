@@ -124,12 +124,12 @@ jobs:
 
           # Verify response does not contain an unhandled error or crash
           if grep -q "FunctionError" smoke_test_response.json || grep -q "errorMessage" smoke_test_response.json; then
-            echo "❌ Smoke test failed! The new image crashed or threw an error in the test Lambda."
+            echo "[ERROR] Smoke test failed! The new image crashed or threw an error in the test Lambda."
             echo "Aborting deployment to production to keep your live scraper safe."
             exit 1
           fi
 
-          echo "✅ Smoke test passed cleanly!"
+          echo "Smoke test passed cleanly!"
 
       # ------------------------------------------------------------------------
       # STEP 2 OF DEPLOYMENT: Promote to Production Lambda
@@ -147,4 +147,4 @@ jobs:
           aws lambda wait function-updated-v2 \
             --function-name zerodaily-scraper-pipeline \
             --region us-east-1
-          echo "🚀 Production deployment successful and active!"
+          echo "[SUCCESS] Production deployment successful and active!"
