@@ -168,7 +168,7 @@ def lambda_handler(event, context):
             "body": json.dumps({
                 "message": "Daily report processed",
                 "result": digest_result
-            })
+            }, default=str)
         }
 
     # Full end-to-end pipeline (default)
@@ -182,7 +182,7 @@ def lambda_handler(event, context):
         "body": json.dumps({
             "message": "Pipeline execution completed",
             "results": results
-        })
+        }, default=str)
     }
 
 

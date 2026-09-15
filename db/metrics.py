@@ -80,16 +80,16 @@ def get_metrics_for_date(date_str: str) -> List[Dict]:
             KeyConditionExpression=Key("metric_date").eq(date_str)
         )
         items = response.get("Items", [])
+        converted = []
         for item in items:
-            if "duration_seconds" in item:
-                item["duration_seconds"] = float(item["duration_seconds"])
-            if "gb_seconds" in item:
-                item["gb_seconds"] = float(item["gb_seconds"])
-            if "articles_scraped" in item:
-                item["articles_scraped"] = int(item["articles_scraped"])
-            if "articles_summarized" in item:
-                item["articles_summarized"] = int(item["articles_summarized"])
-        return items
+            cleaned = {}
+            for k, v in item.items():
+                if isinstance(v, Decimal):
+                    cleaned[k] = int(v) if v % 1 == 0 else float(v)
+                else:
+                    cleaned[k] = v
+            converted.append(cleaned)
+        return converted
     except Exception as e:
         logging.error(f"[METRICS ERROR] Failed querying metrics for date {date_str}: {e}")
         return []
