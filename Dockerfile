@@ -31,6 +31,7 @@ RUN python -m nltk.downloader -d ${LAMBDA_TASK_ROOT}/nltk_data punkt stopwords |
 COPY db/ ${LAMBDA_TASK_ROOT}/db/
 COPY llm/ ${LAMBDA_TASK_ROOT}/llm/
 COPY scraper/ ${LAMBDA_TASK_ROOT}/scraper/
+COPY notifications/ ${LAMBDA_TASK_ROOT}/notifications/
 COPY lambdaFunction.py ${LAMBDA_TASK_ROOT}/
 
 # Lambda Handler entrypoint
