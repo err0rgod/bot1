@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import logging
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -9,6 +10,8 @@ from scraper.Scraper import scrape_rss_feed
 from llm.SummariserDistributer import process_single_article
 from scraper.ScraperDistributer import lambda_handler as scrape_handler
 from llm.SummariserDistributer import lambdaHandler as summarize_handler
+from db.metrics import record_scrape_metric, calculate_gb_seconds
+from notifications.reporter import send_morning_digest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -23,7 +26,7 @@ ALL_CATEGORIES = [
 ]
 
 
-def run_pipeline_for_category(category: str) -> dict:
+def run_pipeline_for_category(category: str, context=None) -> dict:
     """
     Executes the full end-to-end pipeline for a single category:
       1. Loads RSS feed URLs for the category.
@@ -32,21 +35,44 @@ def run_pipeline_for_category(category: str) -> dict:
       4. Concurrently processes articles with LLM (roast heading, short summary, full summary).
       5. Automatically saves each summarized article into DynamoDB.
       6. Writes local JSON backups into /tmp/ for debugging / audit logs.
+      7. Persists execution telemetry (time, GB-seconds, article counts) into DynamoDB.
     """
     logging.info(f"=== Starting pipeline for category: {category} ===")
+    start_time = time.time()
+    memory_mb = int(getattr(context, "memory_limit_in_mb", 1024)) if context else 1024
 
     # 1. Fetch configured feeds for this category
     feeds = NewsFeeds.get_feeds(category)
     if not feeds:
         logging.warning(f"No feeds configured for category: {category}")
-        return {"category": category, "scraped": 0, "summarized": 0, "status": "no_feeds"}
+        duration_seconds = round(time.time() - start_time, 2)
+        gb_seconds = calculate_gb_seconds(memory_mb, duration_seconds)
+        record_scrape_metric(category, duration_seconds, memory_mb, 0, 0, status="no_feeds")
+        return {
+            "category": category,
+            "scraped": 0,
+            "summarized": 0,
+            "status": "no_feeds",
+            "duration_seconds": duration_seconds,
+            "gb_seconds": gb_seconds
+        }
 
     # 2. Scrape RSS feeds + LLM semantic deduplication + article text extraction
     scraped_articles = scrape_rss_feed(category, feeds)
     logging.info(f"Scraped {len(scraped_articles)} unique articles for {category}")
 
     if not scraped_articles:
-        return {"category": category, "scraped": 0, "summarized": 0, "status": "no_new_articles"}
+        duration_seconds = round(time.time() - start_time, 2)
+        gb_seconds = calculate_gb_seconds(memory_mb, duration_seconds)
+        record_scrape_metric(category, duration_seconds, memory_mb, 0, 0, status="no_new_articles")
+        return {
+            "category": category,
+            "scraped": 0,
+            "summarized": 0,
+            "status": "no_new_articles",
+            "duration_seconds": duration_seconds,
+            "gb_seconds": gb_seconds
+        }
 
     # 3. Save scraped backup to /tmp (cross-platform path resolution)
     today = datetime.now(timezone.utc).date()
@@ -84,11 +110,26 @@ def run_pipeline_for_category(category: str) -> dict:
     except Exception as e:
         logging.warning(f"Could not write final backup to {final_backup_file}: {e}")
 
+    duration_seconds = round(time.time() - start_time, 2)
+    gb_seconds = calculate_gb_seconds(memory_mb, duration_seconds)
+
+    # 6. Record execution telemetry
+    record_scrape_metric(
+        category=category,
+        duration_seconds=duration_seconds,
+        memory_mb=memory_mb,
+        articles_scraped=len(scraped_articles),
+        articles_summarized=len(final_data),
+        status="success"
+    )
+
     return {
         "category": category,
         "scraped": len(scraped_articles),
         "summarized": len(final_data),
-        "status": "success"
+        "status": "success",
+        "duration_seconds": duration_seconds,
+        "gb_seconds": gb_seconds
     }
 
 
@@ -118,12 +159,23 @@ def lambda_handler(event, context):
         return scrape_handler(event, context)
     elif action == "summarize":
         return summarize_handler(event, context)
+    elif action in ("daily_report", "morning_report", "send_digest"):
+        recipient = event.get("recipient")
+        digest_result = send_morning_digest(recipient=recipient)
+        status_code = 200 if digest_result.get("sent") or digest_result.get("status") == "skipped" else 500
+        return {
+            "statusCode": status_code,
+            "body": json.dumps({
+                "message": "Daily report processed",
+                "result": digest_result
+            })
+        }
 
     # Full end-to-end pipeline (default)
     if category and category != "all":
-        results = [run_pipeline_for_category(category)]
+        results = [run_pipeline_for_category(category, context=context)]
     else:
-        results = [run_pipeline_for_category(cat) for cat in ALL_CATEGORIES]
+        results = [run_pipeline_for_category(cat, context=context) for cat in ALL_CATEGORIES]
 
     return {
         "statusCode": 200,

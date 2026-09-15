@@ -88,6 +88,16 @@ flowchart TD
    - **Sort Key (`RANGE`):** `published_at` (`String`, ISO-8601 UTC)
    - *Use Case:* Fetching the unified chronological global news feed across all categories (`get_latest_feed`).
 
+---
+
+### Telemetry & Execution Metrics Schema (`zerodaily-scrape-metrics`)
+
+- **Table Name:** `zerodaily-scrape-metrics` (Region: `us-east-1`, Billing Mode: `PAY_PER_REQUEST`)
+- **Partition Key (`HASH`):** `metric_date` (`String`, e.g. `2026-09-15`)
+- **Sort Key (`RANGE`):** `metric_id` (`String`, e.g. `2026-09-15T06:00:00Z#cybersec`)
+- **TTL Attribute:** `ttl` (Unix timestamp epoch, auto-expires records after 30 days)
+- **Tracked Metrics:** `duration_seconds`, `memory_mb`, `gb_seconds`, `articles_scraped`, `articles_summarized`, `status`.
+
 ### Stored Item Attributes
 ```json
 {
@@ -128,11 +138,15 @@ bot1/
 │   └── workflows/
 │       └── deploy.yml            # CI/CD pipeline (Test -> Build -> Smoke Test -> Deploy)
 ├── db/
-│   └── database.py               # DynamoDB access layer (queries, scans, date formatting)
+│   ├── database.py               # DynamoDB access layer (queries, scans, date formatting)
+│   └── metrics.py                # Telemetry data layer (GB-seconds, duration, run logs)
 ├── llm/
 │   ├── Summariser.py             # Bedrock / DeepSeek LLM engine with retry logic
 │   ├── deduplicator.py           # LLM-based semantic article deduplication
 │   └── SummariserDistributer.py  # Thread-pooled multi-article summarizer
+├── notifications/
+│   ├── __init__.py               # Notifications package entrypoint
+│   └── reporter.py               # Morning digest compiler & Resend email dispatcher
 ├── scraper/
 │   ├── Feeds.py                  # RSS feed catalog across 6 categories
 │   ├── Scraper.py                # 3-stage scraping engine (RSS -> Dedup -> Extraction)
@@ -141,6 +155,8 @@ bot1/
 │   ├── test_database.py          # Unit tests for database module
 │   ├── test_deduplicator.py      # Unit tests for semantic deduplication
 │   ├── test_lambda_function.py   # Unit tests for unified Lambda driver
+│   ├── test_metrics.py           # Unit tests for telemetry and GB-seconds computation
+│   ├── test_reporter.py          # Unit tests for Resend morning digest reporter
 │   ├── test_scraper.py           # Unit tests for scraper & Firecrawl fallback
 │   └── test_summariser.py        # Unit tests for Bedrock/DeepSeek summarization
 ├── Dockerfile                    # Production AWS Lambda Python 3.12 container
