@@ -2,6 +2,7 @@ import os
 import time
 import logging
 from datetime import datetime, timezone, timedelta
+from decimal import Decimal
 from typing import Optional, List, Dict
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -50,9 +51,9 @@ def record_scrape_metric(
         "metric_id": metric_id,
         "timestamp": timestamp_iso,
         "category": category,
-        "duration_seconds": round(duration_seconds, 2),
+        "duration_seconds": Decimal(str(round(duration_seconds, 2))),
         "memory_mb": int(memory_mb),
-        "gb_seconds": gb_seconds,
+        "gb_seconds": Decimal(str(gb_seconds)),
         "articles_scraped": int(articles_scraped),
         "articles_summarized": int(articles_summarized),
         "status": status,
@@ -78,7 +79,17 @@ def get_metrics_for_date(date_str: str) -> List[Dict]:
         response = metrics_table.query(
             KeyConditionExpression=Key("metric_date").eq(date_str)
         )
-        return response.get("Items", [])
+        items = response.get("Items", [])
+        for item in items:
+            if "duration_seconds" in item:
+                item["duration_seconds"] = float(item["duration_seconds"])
+            if "gb_seconds" in item:
+                item["gb_seconds"] = float(item["gb_seconds"])
+            if "articles_scraped" in item:
+                item["articles_scraped"] = int(item["articles_scraped"])
+            if "articles_summarized" in item:
+                item["articles_summarized"] = int(item["articles_summarized"])
+        return items
     except Exception as e:
         logging.error(f"[METRICS ERROR] Failed querying metrics for date {date_str}: {e}")
         return []
