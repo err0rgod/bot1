@@ -11,6 +11,7 @@ from newspaper import Article
 from datetime import datetime, timezone
 from db.database import is_article_scraped
 from llm.deduplicator import filter_duplicate_articles
+from scraper.images import process_and_upload_image
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -191,7 +192,8 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
         if not extracted_data or not isinstance(extracted_data, dict) or not extracted_data.get("content"): 
             continue
 
-        final_image_url = item["rss_image"] or extracted_data.get("image_url") or ""
+        raw_image_url = item["rss_image"] or extracted_data.get("image_url") or ""
+        final_image_url = process_and_upload_image(raw_image_url, category_name, link)
 
         news_data.append({
             "id": link,
