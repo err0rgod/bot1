@@ -1,6 +1,7 @@
 # ZeroDaily News Engine (`bot1`)
 
 [![CI/CD Pipeline](https://github.com/err0rgod/bot1/actions/workflows/deploy.yml/badge.svg)](https://github.com/err0rgod/bot1/actions/workflows/deploy.yml)
+[![Tests](https://img.shields.io/badge/tests-62%20passed-success)](tests/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![AWS Lambda](https://img.shields.io/badge/AWS-Lambda%20Container-orange.svg)](https://aws.amazon.com/lambda/)
 [![DynamoDB](https://img.shields.io/badge/AWS-DynamoDB-blue.svg)](https://aws.amazon.com/dynamodb/)
@@ -130,9 +131,29 @@ Articles are summarized concurrently using `ThreadPoolExecutor(max_workers=5)`.
 
 ---
 
+## Security Architecture & Hardening
+
+ZeroDaily ingests external RSS feeds, arbitrary article HTML, and hero images from untrusted remote publishers. The scraper is hardened with defense-in-depth controls:
+
+### 1. SSRF & DNS Rebinding Protection ([`scraper/security.py`](file:///D:/bot1/scraper/security.py))
+- **IP Blacklisting**: All candidate URLs are resolved to IP addresses prior to HTTP requests. Requests targeting internal metadata services (`169.254.169.254`), private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), loopbacks (`127.0.0.0/8`), or link-local ranges are blocked immediately.
+- **Protocol Enforcement**: Only `http` and `https` schemes are permitted. File, FTP, and data URIs are discarded.
+- **Embedded Credential Stripping**: URLs containing userinfo (e.g. `https://user:pass@host/`) are rejected to prevent credential leakage.
+
+### 2. Resource Exhaustion & Payload Capping ([`scraper/images.py`](file:///D:/bot1/scraper/images.py))
+- **Streamed Chunk Downloads**: Remote hero images are read in 64KB chunks with strict enforcement of a **10MB ceiling**. If an image payload exceeds 10MB or stalls, the connection is terminated to prevent Lambda container memory exhaustion.
+- **Image Sanitization**: Downloaded assets are re-encoded into 800px WebP files with EXIF stripping before S3 persistence.
+
+### 3. Prompt Injection Defense & Output Sanitization ([`llm/Summariser.py`](file:///D:/bot1/llm/Summariser.py))
+- **XML Tag Encapsulation**: Untrusted scraped article bodies are quarantined inside `<untrusted_article_content>` boundaries to prevent system prompt overrides.
+- **Strict Schema Validation**: LLM outputs are stripped of markdown fences and parsed against a rigid JSON schema with bounded character limits (headings <= 120 chars, summaries <= 300 chars, roasts <= 1500 chars).
+- **Control Character Filtering**: Null bytes, script tags, and non-printable control characters are purged prior to DynamoDB storage.
+
+---
+
 ## Project Structure
 
-```
+```text
 bot1/
 ├── .github/
 │   └── workflows/
@@ -150,14 +171,18 @@ bot1/
 ├── scraper/
 │   ├── Feeds.py                  # RSS feed catalog across 6 categories
 │   ├── Scraper.py                # 3-stage scraping engine (RSS -> Dedup -> Extraction)
-│   └── ScraperDistributer.py     # Standalone category scraper handler
+│   ├── ScraperDistributer.py     # Standalone category scraper handler
+│   ├── images.py                 # Safe streamed image downloading, resizing, WebP & S3 upload
+│   └── security.py               # SSRF prevention, IP validation, and input sanitization
 ├── tests/
 │   ├── test_database.py          # Unit tests for database module
 │   ├── test_deduplicator.py      # Unit tests for semantic deduplication
+│   ├── test_images.py            # Unit tests for image optimization & S3 uploads
 │   ├── test_lambda_function.py   # Unit tests for unified Lambda driver
 │   ├── test_metrics.py           # Unit tests for telemetry and GB-seconds computation
 │   ├── test_reporter.py          # Unit tests for Resend morning digest reporter
 │   ├── test_scraper.py           # Unit tests for scraper & Firecrawl fallback
+│   ├── test_security.py          # Unit tests for SSRF, IP filtering, and sanitization
 │   └── test_summariser.py        # Unit tests for Bedrock/DeepSeek summarization
 ├── Dockerfile                    # Production AWS Lambda Python 3.12 container
 ├── .dockerignore                 # Excludes local secrets & cache from Docker context
@@ -196,7 +221,7 @@ FIRECRAWL_API_KEY=your_firecrawl_key
 ```bash
 pytest -v
 ```
-*All 30 unit tests mock external AWS/API dependencies and run fully offline in ~3 seconds.*
+*All 62 unit tests mock external AWS/API dependencies and run fully offline in ~5 seconds.*
 
 ### 4. Run Pipeline Locally
 ```bash
@@ -212,7 +237,7 @@ python lambdaFunction.py
 The repository uses GitHub Actions ([`.github/workflows/deploy.yml`](file:///D:/bot1/.github/workflows/deploy.yml)) with a zero-downtime, smoke-tested deployment gate:
 
 1. **Pull Requests & Pushes to `main`:**
-   - Automatically runs the 30 unit tests via `pytest`.
+   - Automatically runs all 62 unit tests via `pytest`.
 2. **Tag Releases (`v*.*.*`):**
    - Runs `pytest` test suite.
    - Builds Linux/amd64 Docker image with `--provenance=false`.
@@ -225,3 +250,4 @@ The repository uses GitHub Actions ([`.github/workflows/deploy.yml`](file:///D:/
 git tag v0.1.1
 git push origin v0.1.1
 ```
+
