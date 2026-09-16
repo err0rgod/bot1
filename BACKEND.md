@@ -64,7 +64,9 @@ Primary store for enriched, roasted news articles across 6 domains.
   - `fullSummary` (`String`): Complete multi-paragraph roasted story breakdown.
   - `image_url` (`String`): Cloudflare CDN URL: `https://media.zerodaily.in/images/{category}/{hash}.webp`.
   - `link` (`String`): Link to original source article.
-  - `scraped_at` (`String`): ISO-8601 UTC timestamp of ingestion.
+  - `is_breaking` (`Boolean`): `true` only for critical 0-days, major global outages, frontier model launches, or massive tech events.
+  - `push_punchline` (`String`): High-impact notification line (<= 50 characters) for mobile push delivery.
+  - `created_at` (`String`): ISO-8601 UTC timestamp of ingestion.
 
 #### Global Secondary Indexes (GSIs)
 

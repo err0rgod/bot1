@@ -74,6 +74,33 @@ class TestDatabaseModule:
         assert call_args["shortSummary"] == "Very funny sarcastic summary."
         assert call_args["fullSummary"] == "Factual 100-word summary."
         assert call_args["image_url"] == "https://example.com/img.jpg"
+        assert call_args["is_breaking"] is False
+        assert call_args["push_punchline"] == ""
+
+    @patch("db.database.articles_table")
+    def test_save_article_breaking_news(self, mock_table):
+        article = {
+            "id": "https://example.com/breaking1",
+            "title": "Major Tech Outage",
+            "date": "Wed, 09 Sep 2026 12:05:34 +0000",
+            "link": "https://example.com/breaking1",
+            "image_url": "https://example.com/breaking.webp"
+        }
+        summary_data = {
+            "roasted_heading": "Global Outage",
+            "short_roast_summary": "Everything is on fire.",
+            "full_summary": "Factual outage summary.",
+            "is_breaking": True,
+            "push_punchline": "Massive outage takes down services worldwide."
+        }
+
+        result = save_article(article, "dev", summary_data)
+        assert result is True
+        assert mock_table.put_item.called
+        call_args = mock_table.put_item.call_args[1]["Item"]
+
+        assert call_args["is_breaking"] is True
+        assert call_args["push_punchline"] == "Massive outage takes down services worldwide."
 
     @patch("db.database.articles_table")
     def test_save_article_failure(self, mock_table):
