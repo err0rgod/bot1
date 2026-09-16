@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from db.database import is_article_scraped
 from llm.deduplicator import filter_duplicate_articles
 from scraper.images import process_and_upload_image
+from scraper.security import is_safe_url, sanitize_text
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -46,6 +47,10 @@ def get_headers():
 
 def extract_article_with_firecrawl(url: str):
     """ Uses firecrawl to exract content for cloudflare restricted pages"""
+    if not is_safe_url(url):
+        logging.warning(f"[SECURITY] Blocked Firecrawl request to unsafe URL: {url}")
+        return ""
+
     logging.info(f"triggerinng firecrawl for: {url}")
 
     api_key = os.getenv("FIRECRAWL_API_KEY")
@@ -76,8 +81,9 @@ def extract_article_with_firecrawl(url: str):
             if phrase in markdown_text:
                 markdown_text = markdown_text.split(phrase)[0] # Keep only the text BEFORE the phrase
         
+        sanitized_content = sanitize_text(markdown_text.strip(), max_length=15000)
         return {
-            "content": markdown_text.strip(),
+            "content": sanitized_content,
             "image_url": None
         }
 
@@ -87,6 +93,10 @@ def extract_article_with_firecrawl(url: str):
 
 #extract article content using newspaper3k for HTML pages 
 def extract_article(url : str):
+    if not is_safe_url(url):
+        logging.warning(f"[SECURITY] Blocked extraction for unsafe URL: {url}")
+        return None
+
     try:
         # attempt 1 : direct scraping 
         random_delay()
@@ -104,10 +114,10 @@ def extract_article(url : str):
         if not article.text or len(article.text) < 50 :
             raise ValueError("Newspaper3k return enmpty or malformed string.")
 
-        image_url = article.top_image if article.top_image and article.top_image.startswith("http") else None
+        image_url = article.top_image if article.top_image and is_safe_url(article.top_image) else None
 
         return {
-            "content": article.text,
+            "content": sanitize_text(article.text, max_length=15000),
             "image_url": image_url
         }
 
@@ -128,6 +138,10 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
 
     # Stage 1: Collect today's un-scraped headlines from feeds
     for feed_url in feeds_to_scrape:
+        if not is_safe_url(feed_url):
+            logging.warning(f"[SECURITY] Blocked unsafe feed URL: {feed_url}")
+            continue
+
         logging.info(f"Reading RSS Feed : {feed_url}")
 
         feed = feedparser.parse(feed_url)
@@ -143,6 +157,9 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
 
             # check if already seen in links
             link = entry.link
+            if not is_safe_url(link):
+                logging.warning(f"[SECURITY] Blocked unsafe article link in feed: {link}")
+                continue
 
             # check if article scanned today
             if is_already_scraped(link):
@@ -157,18 +174,25 @@ def scrape_rss_feed(category_name, feeds_to_scrape):
             # extract thumbnail from RSS if available
             rss_image = None
             if "media_content" in entry and len(entry.media_content) > 0:
-                rss_image = entry.media_content[0].get("url")
+                raw_url = entry.media_content[0].get("url")
+                if raw_url and is_safe_url(raw_url):
+                    rss_image = raw_url
             elif "links" in entry:
                 for link_item in entry.links:
                     if link_item.get("rel") == "enclosure" and "image" in link_item.get("type", ""):
-                        rss_image = link_item.get("href")
+                        raw_url = link_item.get("href")
+                        if raw_url and is_safe_url(raw_url):
+                            rss_image = raw_url
                         break
 
+            clean_title = sanitize_text(entry.title, max_length=300)
+            clean_summary = sanitize_text(entry.get("summary", ""), max_length=2000)
+
             candidates.append({
-                "title": entry.title,
+                "title": clean_title,
                 "link": link,
                 "date": entry.get("published", ""),
-                "summary": entry.get("summary", ""),
+                "summary": clean_summary,
                 "rss_image": rss_image
             })
 

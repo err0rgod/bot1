@@ -1,5 +1,8 @@
+.env
 *.env
 *.json
+*.key
+*.pem
 tmp/
 __pycache__/
 *.py[cod]

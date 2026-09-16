@@ -6,15 +6,20 @@ from typing import Optional
 import requests
 import boto3
 from PIL import Image
+from scraper.security import is_safe_url
 import dotenv
 
 dotenv.load_dotenv()
+
+# Prevent Pillow decompression bombs (max 25 megapixels)
+Image.MAX_IMAGE_PIXELS = 25_000_000
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
 S3_IMAGE_BUCKET = os.getenv("S3_IMAGE_BUCKET", "zerodaily-article-images")
 MEDIA_BASE_URL = os.getenv("MEDIA_BASE_URL", "https://media.zerodaily.in").rstrip("/")
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB maximum payload
 
 s3_client = boto3.client("s3", region_name=REGION)
 
@@ -33,19 +38,50 @@ def generate_image_key(category: str, article_url: str) -> str:
 
 
 def download_image(image_url: str, timeout: int = 10) -> Optional[bytes]:
-    """Downloads an external image with browser-like headers and error resilience."""
+    """Downloads an external image with SSRF protection, size caps, and error resilience."""
+    if not is_safe_url(image_url):
+        logging.warning(f"[SECURITY] Rejected unsafe image URL: {image_url}")
+        return None
+
     headers = {
         "User-Agent": DEFAULT_USER_AGENT,
         "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
     }
     try:
-        response = requests.get(image_url, headers=headers, timeout=timeout)
+        response = requests.get(image_url, headers=headers, timeout=timeout, stream=True)
         response.raise_for_status()
-        content = response.content
+
+        # Check content-length header if provided
+        content_length = response.headers.get("Content-Length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_IMAGE_BYTES:
+                    logging.warning(f"[SECURITY] Image exceeds size limit ({content_length} bytes): {image_url}")
+                    return None
+            except ValueError:
+                pass
+
+        # Read stream up to MAX_IMAGE_BYTES in 64KB chunks
+        content = bytearray()
+        if hasattr(response, "iter_content"):
+            for chunk in response.iter_content(chunk_size=65536):
+                if chunk:
+                    content.extend(chunk)
+                if len(content) > MAX_IMAGE_BYTES:
+                    logging.warning(f"[SECURITY] Image exceeded max size during streaming: {image_url}")
+                    return None
+
+        # Fallback to response.content if iter_content yielded nothing (e.g. mocked responses)
+        if not content and hasattr(response, "content") and response.content:
+            if len(response.content) > MAX_IMAGE_BYTES:
+                logging.warning(f"[SECURITY] Image exceeds max size ({len(response.content)} bytes): {image_url}")
+                return None
+            content = bytearray(response.content)
+
         if len(content) < 500:
             logging.warning(f"[IMAGE] Downloaded payload too small ({len(content)} bytes) for {image_url}")
             return None
-        return content
+        return bytes(content)
     except Exception as e:
         logging.warning(f"[IMAGE] Failed downloading image from {image_url}: {e}")
         return None
