@@ -58,6 +58,8 @@ def save_article(article: Dict, category: str, summary_data: Dict) -> bool :
             "fullSummary": summary_data.get("full_summary", ""),
             "link": article.get("link", article["id"]),
             "image_url": article.get("image_url", ""),
+            "is_breaking": bool(summary_data.get("is_breaking", False)),
+            "push_punchline": str(summary_data.get("push_punchline") or ""),
             "created_at": now_iso
         }
 

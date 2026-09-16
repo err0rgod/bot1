@@ -15,7 +15,9 @@ class TestSummariser:
         expected_json = {
             "roasted_heading": "Funny Roast Headline",
             "short_roast_summary": "Sarcastic short summary.",
-            "full_summary": "Serious factual 80-100 word summary."
+            "full_summary": "Serious factual 80-100 word summary.",
+            "is_breaking": False,
+            "push_punchline": None
         }
         mock_bedrock.converse.return_value = {
             "output": {
@@ -37,7 +39,9 @@ class TestSummariser:
         expected_json = {
             "roasted_heading": "DeepSeek Roast Headline",
             "short_roast_summary": "DeepSeek sarcastic summary.",
-            "full_summary": "DeepSeek serious summary."
+            "full_summary": "DeepSeek serious summary.",
+            "is_breaking": False,
+            "push_punchline": None
         }
         mock_choice = MagicMock()
         mock_choice.message.content = json.dumps(expected_json)
@@ -53,7 +57,9 @@ class TestSummariser:
         expected_json = {
             "roasted_heading": "Cleaned Roast",
             "short_roast_summary": "Cleaned short summary.",
-            "full_summary": "Cleaned full summary."
+            "full_summary": "Cleaned full summary.",
+            "is_breaking": False,
+            "push_punchline": None
         }
         # Wrapped in ```json ... ```
         wrapped_text = f"```json\n{json.dumps(expected_json)}\n```"
@@ -70,6 +76,30 @@ class TestSummariser:
         content = "C" * 100
         result = generateContent(content, use_bedrock=True)
         assert result == expected_json
+
+    @patch("llm.Summariser.bedrock_client")
+    def test_generate_content_with_breaking_news(self, mock_bedrock):
+        expected_json = {
+            "roasted_heading": "Critical Zero-Day Drops",
+            "short_roast_summary": "Patch your servers yesterday.",
+            "full_summary": "A critical remote code execution vulnerability was discovered.",
+            "is_breaking": True,
+            "push_punchline": "Critical RCE flaw in OpenSSH disclosed."
+        }
+        mock_bedrock.converse.return_value = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"text": json.dumps(expected_json)}
+                    ]
+                }
+            }
+        }
+
+        content = "E" * 100
+        result = generateContent(content, use_bedrock=True)
+        assert result["is_breaking"] is True
+        assert result["push_punchline"] == "Critical RCE flaw in OpenSSH disclosed."
 
     @patch("llm.Summariser.bedrock_client")
     @patch("time.sleep")

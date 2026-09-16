@@ -27,7 +27,9 @@ def process_single_article(article, targetCategory):
                 "image_url": article.get('image_url', ''),
                 "heading": resultant.get("roasted_heading"),
                 "shortSummary": resultant.get("short_roast_summary"),
-                "fullSummary": resultant.get("full_summary")
+                "fullSummary": resultant.get("full_summary"),
+                "is_breaking": bool(resultant.get("is_breaking", False)),
+                "push_punchline": str(resultant.get("push_punchline") or "")
             }
         else:
             logging.warning(f"Failed to summarise: {article['title']}")
