@@ -153,8 +153,12 @@ def process_and_upload_image(
 ) -> str:
     """
     Orchestrates downloading, WebP compression, S3 upload, and Cloudflare CDN URL generation.
-    Falls back gracefully to the original image_url if any step fails.
+    Falls back to a category default CDN placeholder if download/compression/upload fails.
+    Never returns raw external 3rd-party image URLs.
     """
+    clean_cat = category.strip().lower() if category else "default"
+    fallback_url = f"{MEDIA_BASE_URL}/images/defaults/{clean_cat}.webp"
+
     if not image_url or not isinstance(image_url, str) or not image_url.startswith("http"):
         return ""
 
@@ -162,14 +166,16 @@ def process_and_upload_image(
     if MEDIA_BASE_URL in image_url:
         return image_url
 
-    s3_key = generate_image_key(category, article_url)
+    s3_key = generate_image_key(clean_cat, article_url)
     raw_bytes = download_image(image_url)
     if not raw_bytes:
-        return image_url
+        logging.warning(f"[IMAGE] Download failed for {image_url}. Using category fallback: {fallback_url}")
+        return fallback_url
 
     webp_bytes = optimize_image(raw_bytes)
     if not webp_bytes:
-        return image_url
+        logging.warning(f"[IMAGE] Optimization failed for {image_url}. Using category fallback: {fallback_url}")
+        return fallback_url
 
     success = upload_to_s3(webp_bytes, s3_key)
     if success:
@@ -177,4 +183,6 @@ def process_and_upload_image(
         logging.info(f"[IMAGE] Successfully converted to CDN WebP: {cdn_url}")
         return cdn_url
 
-    return image_url
+    logging.warning(f"[IMAGE] S3 upload failed for {s3_key}. Using category fallback: {fallback_url}")
+    return fallback_url
+

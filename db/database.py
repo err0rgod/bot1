@@ -14,6 +14,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # aws dynamodb resource
 REGION = os.getenv("AWS_REGION", "us-east-1")
 TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "zerodaily-articles")
+MEDIA_BASE_URL = os.getenv("MEDIA_BASE_URL", "https://media.zerodaily.in").rstrip("/")
 
 dynamodb = boto3.resource('dynamodb', region_name = REGION)
 articles_table = dynamodb.Table(TABLE_NAME)
@@ -46,6 +47,15 @@ def save_article(article: Dict, category: str, summary_data: Dict) -> bool :
     try:
         published_at = format_iso_date(article.get("date"))
         now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        clean_category = category.strip().lower() if category else "default"
+
+        raw_img = article.get("image_url", "")
+        # Ensure only valid media.zerodaily.in links or category defaults are persisted
+        if raw_img and not raw_img.startswith("https://media.zerodaily.in"):
+            logging.warning(f"[DB] Stripping un-optimized 3rd party image URL: {raw_img}")
+            final_image_url = f"https://media.zerodaily.in/images/defaults/{clean_category}.webp"
+        else:
+            final_image_url = raw_img
 
         item = {
             "id": article["id"],
@@ -57,18 +67,19 @@ def save_article(article: Dict, category: str, summary_data: Dict) -> bool :
             "shortSummary": summary_data.get("short_roast_summary", ""),
             "fullSummary": summary_data.get("full_summary", ""),
             "link": article.get("link", article["id"]),
-            "image_url": article.get("image_url", ""),
+            "image_url": final_image_url,
             "is_breaking": bool(summary_data.get("is_breaking", False)),
             "push_punchline": str(summary_data.get("push_punchline") or ""),
             "created_at": now_iso
         }
 
         articles_table.put_item(Item=item)
-        logging.info(f"[DB] Saved article: {item["heading"]}")
+        logging.info(f"[DB] Saved article: {item['heading']}")
         return True
     except Exception as e:
         logging.error(f"[DB ERROR] Failed to save article {article.get('id')} : {e}")
         return False
+
 
 
 

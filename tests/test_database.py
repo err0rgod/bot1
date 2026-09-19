@@ -73,9 +73,44 @@ class TestDatabaseModule:
         assert call_args["heading"] == "AI Breakthrough Roast"
         assert call_args["shortSummary"] == "Very funny sarcastic summary."
         assert call_args["fullSummary"] == "Factual 100-word summary."
-        assert call_args["image_url"] == "https://example.com/img.jpg"
+        # Strips 3rd party URL and falls back to category default CDN URL
+        assert call_args["image_url"] == "https://media.zerodaily.in/images/defaults/ai.webp"
         assert call_args["is_breaking"] is False
         assert call_args["push_punchline"] == ""
+
+    @patch("db.database.articles_table")
+    def test_save_article_with_valid_cdn_image(self, mock_table):
+        valid_cdn_url = "https://media.zerodaily.in/images/cybersec/abc12345.webp"
+        article = {
+            "id": "https://example.com/news2",
+            "title": "Sample 0-day",
+            "date": "Wed, 09 Sep 2026 12:05:34 +0000",
+            "link": "https://example.com/news2",
+            "image_url": valid_cdn_url
+        }
+        summary_data = {
+            "roasted_heading": "0-day Roast",
+            "short_roast_summary": "Roasted.",
+            "full_summary": "Full summary."
+        }
+        result = save_article(article, "cybersec", summary_data)
+        assert result is True
+        call_args = mock_table.put_item.call_args[1]["Item"]
+        assert call_args["image_url"] == valid_cdn_url
+
+    @patch("db.database.articles_table")
+    def test_save_article_with_empty_image(self, mock_table):
+        article = {
+            "id": "https://example.com/news3",
+            "title": "Sample Article No Image",
+            "date": "Wed, 09 Sep 2026 12:05:34 +0000",
+            "link": "https://example.com/news3",
+            "image_url": ""
+        }
+        result = save_article(article, "ai", {})
+        assert result is True
+        call_args = mock_table.put_item.call_args[1]["Item"]
+        assert call_args["image_url"] == ""
 
     @patch("db.database.articles_table")
     def test_save_article_breaking_news(self, mock_table):
@@ -84,7 +119,7 @@ class TestDatabaseModule:
             "title": "Major Tech Outage",
             "date": "Wed, 09 Sep 2026 12:05:34 +0000",
             "link": "https://example.com/breaking1",
-            "image_url": "https://example.com/breaking.webp"
+            "image_url": "https://media.zerodaily.in/images/dev/breaking.webp"
         }
         summary_data = {
             "roasted_heading": "Global Outage",
@@ -101,6 +136,8 @@ class TestDatabaseModule:
 
         assert call_args["is_breaking"] is True
         assert call_args["push_punchline"] == "Massive outage takes down services worldwide."
+        assert call_args["image_url"] == "https://media.zerodaily.in/images/dev/breaking.webp"
+
 
     @patch("db.database.articles_table")
     def test_save_article_failure(self, mock_table):

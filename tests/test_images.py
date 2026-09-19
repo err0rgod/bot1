@@ -104,4 +104,31 @@ class TestImagePipeline:
             category="cybersec",
             article_url="https://publisher.com/story1"
         )
-        assert result == raw_url
+        assert result == "https://media.zerodaily.in/images/defaults/cybersec.webp"
+
+    @patch("scraper.images.optimize_image")
+    @patch("scraper.images.download_image")
+    def test_process_and_upload_image_fallback_on_optimization_error(self, mock_down, mock_opt):
+        mock_down.return_value = b"some_bytes"
+        mock_opt.return_value = None
+        result = process_and_upload_image(
+            image_url="https://publisher.com/hero.png",
+            category="ai",
+            article_url="https://publisher.com/story1"
+        )
+        assert result == "https://media.zerodaily.in/images/defaults/ai.webp"
+
+    @patch("scraper.images.upload_to_s3")
+    @patch("scraper.images.optimize_image")
+    @patch("scraper.images.download_image")
+    def test_process_and_upload_image_fallback_on_s3_error(self, mock_down, mock_opt, mock_up):
+        mock_down.return_value = b"some_bytes"
+        mock_opt.return_value = b"webp_bytes"
+        mock_up.return_value = False
+        result = process_and_upload_image(
+            image_url="https://publisher.com/hero.png",
+            category="programming",
+            article_url="https://publisher.com/story1"
+        )
+        assert result == "https://media.zerodaily.in/images/defaults/programming.webp"
+

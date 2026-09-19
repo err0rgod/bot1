@@ -1,7 +1,7 @@
 # ZeroDaily News Engine (`bot1`)
 
 [![CI/CD Pipeline](https://github.com/err0rgod/bot1/actions/workflows/deploy.yml/badge.svg)](https://github.com/err0rgod/bot1/actions/workflows/deploy.yml)
-[![Tests](https://img.shields.io/badge/tests-62%20passed-success)](tests/)
+[![Tests](https://img.shields.io/badge/tests-66%20passed-success)](tests/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![AWS Lambda](https://img.shields.io/badge/AWS-Lambda%20Container-orange.svg)](https://aws.amazon.com/lambda/)
 [![DynamoDB](https://img.shields.io/badge/AWS-DynamoDB-blue.svg)](https://aws.amazon.com/dynamodb/)
@@ -140,14 +140,17 @@ ZeroDaily ingests external RSS feeds, arbitrary article HTML, and hero images fr
 - **Protocol Enforcement**: Only `http` and `https` schemes are permitted. File, FTP, and data URIs are discarded.
 - **Embedded Credential Stripping**: URLs containing userinfo (e.g. `https://user:pass@host/`) are rejected to prevent credential leakage.
 
-### 2. Resource Exhaustion & Payload Capping ([`scraper/images.py`](file:///D:/bot1/scraper/images.py))
+### 2. Resource Exhaustion & CDN Image Enforcement ([`scraper/images.py`](file:///D:/bot1/scraper/images.py))
 - **Streamed Chunk Downloads**: Remote hero images are read in 64KB chunks with strict enforcement of a **10MB ceiling**. If an image payload exceeds 10MB or stalls, the connection is terminated to prevent Lambda container memory exhaustion.
 - **Image Sanitization**: Downloaded assets are re-encoded into 800px WebP files with EXIF stripping before S3 persistence.
+- **Zero Raw Hotlink Leaks**: If downloading, optimization, or S3 uploads fail (e.g. anti-bot/hotlinking blocks by publishers), the pipeline never stores raw external URLs. It falls back to pre-rendered category default CDN placeholders (`https://media.zerodaily.in/images/defaults/{category}.webp`).
+- **Database Persistence Guard ([`db/database.py`](file:///D:/bot1/db/database.py))**: A defense-in-depth gate intercepts every article before DynamoDB write. Any incoming non-`media.zerodaily.in` image URL is stripped and replaced with the verified category default WebP.
 
 ### 3. Prompt Injection Defense & Output Sanitization ([`llm/Summariser.py`](file:///D:/bot1/llm/Summariser.py))
 - **XML Tag Encapsulation**: Untrusted scraped article bodies are quarantined inside `<untrusted_article_content>` boundaries to prevent system prompt overrides.
 - **Strict Schema Validation**: LLM outputs are stripped of markdown fences and parsed against a rigid JSON schema with bounded character limits (headings <= 120 chars, summaries <= 300 chars, roasts <= 1500 chars).
 - **Control Character Filtering**: Null bytes, script tags, and non-printable control characters are purged prior to DynamoDB storage.
+
 
 ---
 
@@ -212,6 +215,8 @@ Copy `.env.example` to `.env` and configure your credentials:
 ```env
 AWS_REGION=us-east-1
 DYNAMODB_TABLE_NAME=zerodaily-articles
+S3_IMAGE_BUCKET=zerodaily-article-images
+MEDIA_BASE_URL=https://media.zerodaily.in
 USE_BEDROCK=true
 DEEPSEEK_API_KEY=your_deepseek_key
 FIRECRAWL_API_KEY=your_firecrawl_key
@@ -221,7 +226,7 @@ FIRECRAWL_API_KEY=your_firecrawl_key
 ```bash
 pytest -v
 ```
-*All 62 unit tests mock external AWS/API dependencies and run fully offline in ~5 seconds.*
+*All 66 unit tests mock external AWS/API dependencies and run fully offline in ~3 seconds.*
 
 ### 4. Run Pipeline Locally
 ```bash
@@ -237,7 +242,8 @@ python lambdaFunction.py
 The repository uses GitHub Actions ([`.github/workflows/deploy.yml`](file:///D:/bot1/.github/workflows/deploy.yml)) with a zero-downtime, smoke-tested deployment gate:
 
 1. **Pull Requests & Pushes to `main`:**
-   - Automatically runs all 62 unit tests via `pytest`.
+   - Automatically runs all 66 unit tests via `pytest`.
+
 2. **Tag Releases (`v*.*.*`):**
    - Runs `pytest` test suite.
    - Builds Linux/amd64 Docker image with `--provenance=false`.
