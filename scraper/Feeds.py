@@ -42,7 +42,8 @@ class NewsFeeds:
             "https://breakingdefense.com/feed/",                    
             "https://www.defensenews.com/arc/outboundfeeds/rss/",   
             "https://spacenews.com/feed/",                          
-            "https://www.space.com/feeds/all"                       
+            "https://www.space.com/feeds/all",
+            "https://manufacturing.economictimes.indiatimes.com/rss/aerospace-defence"
         ],
         
         # 6. SEMICONDUCTORS & HARDWARE
@@ -54,7 +55,8 @@ class NewsFeeds:
             "https://electronics.economictimes.indiatimes.com/rss/semiconductors",
             "https://electronics.economictimes.indiatimes.com/rss/components-hardware",
             "https://electronics.economictimes.indiatimes.com/rss/consumer-electronics",
-            "https://electronics.economictimes.indiatimes.com/rss/manufacturing"
+            "https://electronics.economictimes.indiatimes.com/rss/manufacturing",
+            "https://manufacturing.economictimes.indiatimes.com/rss/hi-tech"
         ]
     }
 
