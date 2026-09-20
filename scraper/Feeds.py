@@ -33,7 +33,8 @@ class NewsFeeds:
             "https://therobotreport.com/feed/",                     
             "https://spectrum.ieee.org/feeds/topic/robotics.rss",   
             "https://robohub.org/feed/",                            
-            "https://www.roboticsbusinessreview.com/feed/"          
+            "https://www.roboticsbusinessreview.com/feed/",
+            "https://electronics.economictimes.indiatimes.com/rss/ai-robotics-automation"
         ],
         
         # 5. DEFENSE & AEROSPACE
@@ -49,7 +50,11 @@ class NewsFeeds:
             "https://www.tomshardware.com/feeds/all",               
             "https://www.anandtech.com/rss",                        
             "https://spectrum.ieee.org/feeds/topic/semiconductors.rss", 
-            "https://www.eejournal.com/feed/"                       
+            "https://www.eejournal.com/feed/",
+            "https://electronics.economictimes.indiatimes.com/rss/semiconductors",
+            "https://electronics.economictimes.indiatimes.com/rss/components-hardware",
+            "https://electronics.economictimes.indiatimes.com/rss/consumer-electronics",
+            "https://electronics.economictimes.indiatimes.com/rss/manufacturing"
         ]
     }
 
