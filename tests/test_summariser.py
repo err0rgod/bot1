@@ -110,3 +110,29 @@ class TestSummariser:
         result = generateContent(content, use_bedrock=True)
         assert result is None
         assert mock_bedrock.converse.call_count == 3
+
+    @patch("llm.Summariser.bedrock_client")
+    def test_generate_content_without_full_summary(self, mock_bedrock):
+        expected_json = {
+            "roasted_heading": "Simple Heading",
+            "short_roast_summary": "Plain English summary with a bit of roast.",
+            "is_breaking": False,
+            "push_punchline": None
+        }
+        mock_bedrock.converse.return_value = {
+            "output": {
+                "message": {
+                    "content": [
+                        {"text": json.dumps(expected_json)}
+                    ]
+                }
+            }
+        }
+
+        content = "F" * 100
+        result = generateContent(content, use_bedrock=True)
+        assert result["roasted_heading"] == "Simple Heading"
+        assert result["short_roast_summary"] == "Plain English summary with a bit of roast."
+        assert result["full_summary"] == ""
+        assert result["is_breaking"] is False
+        assert result["push_punchline"] is None
