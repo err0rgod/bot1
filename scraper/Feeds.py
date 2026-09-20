@@ -57,6 +57,20 @@ class NewsFeeds:
             "https://electronics.economictimes.indiatimes.com/rss/consumer-electronics",
             "https://electronics.economictimes.indiatimes.com/rss/manufacturing",
             "https://manufacturing.economictimes.indiatimes.com/rss/hi-tech"
+        ],
+
+        # 7. FINANCE, MARKETS & COMMODITIES
+        "finance": [
+            "https://finance.yahoo.com/news/rssindex",
+            "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+            "https://www.cnbc.com/id/10000664/device/rss/rss.html",
+            "https://www.livemint.com/rss/markets",
+            "https://manufacturing.economictimes.indiatimes.com/rss/industry",
+            "https://manufacturing.economictimes.indiatimes.com/rss/life-sciences",
+            "https://manufacturing.economictimes.indiatimes.com/rss/energy",
+            "https://manufacturing.economictimes.indiatimes.com/rss/chemicals",
+            "https://manufacturing.economictimes.indiatimes.com/rss/fmcg",
+            "https://electronics.economictimes.indiatimes.com/rss/startups-funding"
         ]
     }
 

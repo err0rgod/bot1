@@ -22,7 +22,8 @@ ALL_CATEGORIES = [
     "programming",
     "robotics",
     "defense_aerospace",
-    "hardware"
+    "hardware",
+    "finance"
 ]
 
 
