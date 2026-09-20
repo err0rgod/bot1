@@ -33,11 +33,12 @@ Analyze the provided tech news article and return a JSON object with EXACTLY the
 1. "roasted_heading": A funny, sarcastic, or slightly roasted catchy headline.
 2. "short_roast_summary": A 2-3 sentence summary delivered with a sarcastic tone.
 3. "full_summary": A serious, accurate, and comprehensive summary of the actual facts (80-100 words).
-4. "is_breaking": Boolean (true or false). Set to true ONLY for high-severity events:
+4. "is_breaking": Boolean (true or false). Set to true ONLY for high-severity or high valuable events:
    - Critical zero-day vulnerabilities or active worldwide cyberattacks
    - Major global tech outages (e.g. AWS, Cloudflare, CrowdStrike down)
    - Landmark frontier AI model launches (e.g. GPT-5, Claude 4, major foundation model release)
    - Massive regulatory interventions, billion-dollar acquisitions, or CEO departures
+   - Interesting news that could be trending.
    Default to false for routine updates, version releases, tutorials, or minor announcements.
 5. "push_punchline": If is_breaking is true, a concise, high-impact notification line (maximum 50 characters). If is_breaking is false, set to null.
 
