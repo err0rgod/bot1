@@ -104,3 +104,30 @@ class TestSecurityHardening:
         assert len(cleaned["short_roast_summary"]) <= 600
         assert cleaned["is_breaking"] is True
         assert len(cleaned["push_punchline"]) <= 50
+
+    def test_is_economic_times_url(self):
+        from scraper.security import is_economic_times_url
+        assert is_economic_times_url("https://manufacturing.economictimes.indiatimes.com/news/123") is True
+        assert is_economic_times_url("https://electronics.economictimes.indiatimes.com/news/456") is True
+        assert is_economic_times_url("https://etimg.etb2bimg.com/thumb/photo.jpg") is True
+        assert is_economic_times_url("https://techcrunch.com/article") is False
+        assert is_economic_times_url("https://thehackernews.com/") is False
+        assert is_economic_times_url(None) is False
+        assert is_economic_times_url("") is False
+
+    def test_strip_newsletter_boilerplate(self):
+        from scraper.security import strip_newsletter_boilerplate
+        sample_et_text = (
+            "Advt\n\n"
+            "Join the community of 2M+ industry professionals. Subscribe to Newsletter to get latest insights & analysis in your inbox. "
+            "All about ETManufacturing industry right on your smartphone! Download the ETManufacturing App and get the Realtime updates and Save your favourite articles.\n\n"
+            "This is the actual breaking news story about satellite launches."
+        )
+        cleaned = strip_newsletter_boilerplate(sample_et_text)
+        assert "Join the community" not in cleaned
+        assert "Subscribe to Newsletter" not in cleaned
+        assert "in your inbox" not in cleaned
+        assert "Download the ETManufacturing App" not in cleaned
+        assert "Advt" not in cleaned
+        assert cleaned == "This is the actual breaking news story about satellite launches."
+

@@ -132,3 +132,39 @@ class TestImagePipeline:
         )
         assert result == "https://media.zerodaily.in/images/defaults/programming.webp"
 
+    def test_generate_image_key_custom_ext(self):
+        key = generate_image_key("hardware", "https://example.com/chip.html", ext="jpg")
+        assert key.startswith("images/hardware/")
+        assert key.endswith(".jpg")
+
+    @patch("scraper.images.upload_to_s3")
+    @patch("scraper.images.optimize_image")
+    @patch("scraper.images.download_image")
+    def test_process_and_upload_image_economic_times_bypasses_compression(self, mock_down, mock_opt, mock_up):
+        # Create a valid JPEG byte stream
+        img = Image.new("RGB", (1600, 900), color=(100, 150, 200))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG")
+        raw_jpeg = buf.getvalue()
+
+        mock_down.return_value = raw_jpeg
+        mock_up.return_value = True
+
+        result = process_and_upload_image(
+            image_url="https://etimg.etb2bimg.com/thumb/msid-134489987,width-1600,height-900.jpg",
+            category="defense_aerospace",
+            article_url="https://manufacturing.economictimes.indiatimes.com/news/aerospace-defence/test-article"
+        )
+
+        # Ensure optimize_image was NEVER called (bypassing compression)
+        assert not mock_opt.called
+        # Ensure upload_to_s3 was called with original raw bytes and image/jpeg content type
+        assert mock_up.called
+        call_args = mock_up.call_args[0]
+        call_kwargs = mock_up.call_args[1]
+        assert call_args[0] == raw_jpeg
+        assert call_kwargs.get("content_type") == "image/jpeg"
+        assert result.startswith("https://media.zerodaily.in/images/defense_aerospace/")
+        assert result.endswith(".jpg")
+
+

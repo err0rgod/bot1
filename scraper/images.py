@@ -6,7 +6,7 @@ from typing import Optional
 import requests
 import boto3
 from PIL import Image
-from scraper.security import is_safe_url
+from scraper.security import is_safe_url, is_economic_times_url
 import dotenv
 
 dotenv.load_dotenv()
@@ -14,10 +14,13 @@ dotenv.load_dotenv()
 # Prevent Pillow decompression bombs (max 25 megapixels)
 Image.MAX_IMAGE_PIXELS = 25_000_000
 
+# Backward compatibility / convenience alias
+is_economic_times_source = is_economic_times_url
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 REGION = os.getenv("AWS_REGION", "us-east-1")
-S3_IMAGE_BUCKET = os.getenv("S3_IMAGE_BUCKET", "zerodaily-article-images")
+S3_IMAGE_BUCKET = os.getenv("S3_IMAGE_BUCKET", "zerodaily-media")
 MEDIA_BASE_URL = os.getenv("MEDIA_BASE_URL", "https://media.zerodaily.in").rstrip("/")
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB maximum payload
 
@@ -30,11 +33,13 @@ DEFAULT_USER_AGENT = (
 )
 
 
-def generate_image_key(category: str, article_url: str) -> str:
+def generate_image_key(category: str, article_url: str, ext: str = "webp") -> str:
     """Generates a deterministic S3 key based on the category and article URL hash."""
     url_hash = hashlib.md5(article_url.strip().encode("utf-8")).hexdigest()[:16]
     clean_category = category.strip().lower()
-    return f"images/{clean_category}/{url_hash}.webp"
+    clean_ext = ext.lstrip(".").lower()
+    return f"images/{clean_category}/{url_hash}.{clean_ext}"
+
 
 
 def download_image(image_url: str, timeout: int = 10) -> Optional[bytes]:
@@ -127,16 +132,17 @@ def optimize_image(
 def upload_to_s3(
     image_bytes: bytes,
     s3_key: str,
-    bucket_name: Optional[str] = None
+    bucket_name: Optional[str] = None,
+    content_type: str = "image/webp"
 ) -> bool:
-    """Uploads optimized WebP image to S3 with public cache headers."""
+    """Uploads image to S3 with public cache headers."""
     bucket = bucket_name or S3_IMAGE_BUCKET
     try:
         s3_client.put_object(
             Bucket=bucket,
             Key=s3_key,
             Body=image_bytes,
-            ContentType="image/webp",
+            ContentType=content_type,
             CacheControl="public, max-age=2592000"  # 30 days
         )
         logging.info(f"[IMAGE] Uploaded {len(image_bytes)} bytes to s3://{bucket}/{s3_key}")
@@ -152,7 +158,8 @@ def process_and_upload_image(
     article_url: str
 ) -> str:
     """
-    Orchestrates downloading, WebP compression, S3 upload, and Cloudflare CDN URL generation.
+    Orchestrates downloading, WebP compression (or uncompressed pass-through for ET),
+    S3 upload, and Cloudflare CDN URL generation.
     Falls back to a category default CDN placeholder if download/compression/upload fails.
     Never returns raw external 3rd-party image URLs.
     """
@@ -166,18 +173,44 @@ def process_and_upload_image(
     if MEDIA_BASE_URL in image_url:
         return image_url
 
-    s3_key = generate_image_key(clean_cat, article_url)
     raw_bytes = download_image(image_url)
     if not raw_bytes:
         logging.warning(f"[IMAGE] Download failed for {image_url}. Using category fallback: {fallback_url}")
         return fallback_url
 
+    # Check if this is an Economic Times image / article
+    if is_economic_times_url(image_url) or is_economic_times_url(article_url):
+        # Do not compress Economic Times images (prevents blurriness & double compression)
+        ext = "jpg"
+        content_type = "image/jpeg"
+        try:
+            with Image.open(io.BytesIO(raw_bytes)) as img:
+                fmt = (img.format or "").upper()
+                if fmt == "PNG":
+                    ext, content_type = "png", "image/png"
+                elif fmt == "WEBP":
+                    ext, content_type = "webp", "image/webp"
+                elif fmt in ("JPEG", "JPG"):
+                    ext, content_type = "jpg", "image/jpeg"
+        except Exception:
+            pass
+
+        s3_key = generate_image_key(clean_cat, article_url, ext=ext)
+        success = upload_to_s3(raw_bytes, s3_key, content_type=content_type)
+        if success:
+            cdn_url = f"{MEDIA_BASE_URL}/{s3_key}"
+            logging.info(f"[IMAGE] Uploaded uncompressed Economic Times image to CDN: {cdn_url}")
+            return cdn_url
+        return fallback_url
+
+    # Standard publisher: WebP Lanczos compression
+    s3_key = generate_image_key(clean_cat, article_url, ext="webp")
     webp_bytes = optimize_image(raw_bytes)
     if not webp_bytes:
         logging.warning(f"[IMAGE] Optimization failed for {image_url}. Using category fallback: {fallback_url}")
         return fallback_url
 
-    success = upload_to_s3(webp_bytes, s3_key)
+    success = upload_to_s3(webp_bytes, s3_key, content_type="image/webp")
     if success:
         cdn_url = f"{MEDIA_BASE_URL}/{s3_key}"
         logging.info(f"[IMAGE] Successfully converted to CDN WebP: {cdn_url}")
@@ -185,4 +218,5 @@ def process_and_upload_image(
 
     logging.warning(f"[IMAGE] S3 upload failed for {s3_key}. Using category fallback: {fallback_url}")
     return fallback_url
+
 

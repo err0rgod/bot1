@@ -108,6 +108,46 @@ def is_safe_url(url: Optional[str], resolve_dns: bool = True) -> bool:
     return True
 
 
+def is_economic_times_url(url: Optional[str]) -> bool:
+    """Checks if a URL belongs to Economic Times / Indiatimes network."""
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        hostname = urlparse(url.strip()).hostname or ""
+        hostname = hostname.lower()
+        et_domains = ("economictimes.indiatimes.com", "etb2bimg.com", "indiatimes.com")
+        return any(d in hostname or hostname.endswith("." + d) for d in et_domains)
+    except Exception:
+        return False
+
+
+def strip_newsletter_boilerplate(text: Optional[str]) -> str:
+    """
+    Strips publisher newsletter sign-up begging, subscription banners, and ads.
+    Particularly handles Economic Times / B2B indiatimes email collection prompts.
+    """
+    if not text or not isinstance(text, str):
+        return ""
+
+    patterns = [
+        r"Join the community of \d+M?\+? industry professionals\..*?(?:Save your favourite articles\.|in your inbox\.)",
+        r"Join the community of \d+M?\+? industry professionals\..*?inbox\.",
+        r"Subscribe to Newsletter to get latest insights & analysis in your inbox\.",
+        r"Download the ET\w+ App and get the Realtime updates[^\n]*",
+        r"All about ET\w+ industry right on your smartphone![^\n]*",
+        r"By commenting, you agree to theProhibited Content Policy",
+        r"^\s*Advt\s*$",
+    ]
+    cleaned = text
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE | re.MULTILINE)
+
+    # Clean multiple consecutive blank lines
+    cleaned = re.sub(r"\n\s*\n\s*\n+", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+
 def sanitize_text(text: Optional[str], max_length: int = 10000) -> str:
     """
     Strips control characters, dangerous HTML tags, and truncates text.
@@ -135,4 +175,8 @@ def sanitize_text(text: Optional[str], max_length: int = 10000) -> str:
     # Strip javascript: pseudo-protocol
     cleaned = re.sub(r"javascript\s*:", "", cleaned, flags=re.IGNORECASE)
 
+    # Strip newsletter & subscription begging boilerplate
+    cleaned = strip_newsletter_boilerplate(cleaned)
+
     return cleaned[:max_length].strip()
+
