@@ -22,7 +22,7 @@ class NewsFeeds:
         
         # 3. SOFTWARE ENGINEERING & PROGRAMMING
         "programming": [
-            "https://dev.to/feed",                                  
+            # "https://dev.to/feed",                                  
             "https://www.freecodecamp.org/news/rss/",               
             "https://www.infoworld.com/category/software-development/index.rss", 
             "https://sdtimes.com/feed/"                             
